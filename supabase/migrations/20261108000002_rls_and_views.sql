@@ -49,7 +49,7 @@ begin
      or new.consent_version is distinct from old.consent_version
      or new.consent_at is distinct from old.consent_at
      or new.home_h3 is distinct from old.home_h3 then
-    raise exception 'Only the Nukkad service can change role, verification, consent or home cell'
+    raise exception 'Only the Siteline service can change role, verification, consent or home cell'
       using errcode = '42501';
   end if;
   return new;

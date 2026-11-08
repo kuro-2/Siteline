@@ -141,7 +141,7 @@
   },
   "method": {
     "title": "How we work",
-    "intro": "Nukkad is a small team and some software. Here's exactly what each does, what we count, and where we can be wrong.",
+    "intro": "Siteline is a small team and some software. Here's exactly what each does, what we count, and where we can be wrong.",
     "s1_title": "The grid",
     "s1": "We split the area into hexagons about 0.1 km² each, roughly a block. For each kind of shop, a block's catchment is the walk most people will make for it: about 10 minutes for a pharmacy, 5 for tea.",
     "s2_title": "What we count",
@@ -332,7 +332,7 @@
   },
   "errors": {
     "generic": "Something went wrong on our side. Try again in a minute.",
-    "offline": "We couldn't reach Nukkad.",
+    "offline": "We couldn't reach Siteline.",
     "offline_hint": "Check your connection and try again.",
     "not_found_title": "We couldn't find that page.",
     "not_found_body": "The link may be old. Start from the map.",

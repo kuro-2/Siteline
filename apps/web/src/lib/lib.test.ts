@@ -121,7 +121,7 @@ describe("drafts", () => {
     expect(deviceId()).toBe(deviceId());
   });
   it("survives corrupted storage", () => {
-    localStorage.setItem("nukkad.survey.s2", "{not json");
+    localStorage.setItem("siteline.survey.s2", "{not json");
     expect(loadDraft("s2").answers).toEqual({});
   });
   it("hides questions by show_if rules", () => {

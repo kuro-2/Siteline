@@ -1,8 +1,8 @@
-# Nukkad
+# Siteline
 
 *Know the street before you open the shutter.*
 
-Nukkad studies one Guwahati locality and shows which kinds of small shop it's missing, how sure we are, and the evidence behind every claim. An analyst reviews every published result.
+Siteline studies one Guwahati locality and shows which kinds of small shop it's missing, how sure we are, and the evidence behind every claim. An analyst reviews every published result.
 
 - `apps/web`: Next.js site (map, cell reports, survey, review, admin)
 - `services/api`: FastAPI service (`app/`) and the data engine CLI (`engine/`)

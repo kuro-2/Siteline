@@ -16,7 +16,7 @@ import typer
 from engine.log import configure
 from engine.settings import MissingSetting, get_settings
 
-app = typer.Typer(no_args_is_help=True, add_completion=False, help="Nukkad data engine.")
+app = typer.Typer(no_args_is_help=True, add_completion=False, help="Siteline data engine.")
 area_app = typer.Typer(no_args_is_help=True, help="Areas (pilot boundary).")
 geo_app = typer.Typer(no_args_is_help=True, help="H3 grid.")
 ingest_app = typer.Typer(no_args_is_help=True, help="Pull data from sources.")

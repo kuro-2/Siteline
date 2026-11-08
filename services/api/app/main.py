@@ -1,4 +1,4 @@
-"""Nukkad API. Run locally:  uv run fastapi dev app/main.py"""
+"""Siteline API. Run locally:  uv run fastapi dev app/main.py"""
 
 from __future__ import annotations
 

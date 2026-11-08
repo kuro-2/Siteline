@@ -311,7 +311,7 @@ def build_report(conn: Conn, cell: str, category_slug: str) -> dict[str, Any]:
         "components": [{"name": c["name"], "effect": c["effect"], "why": c["why"]} for c in items],
         "reviewed_by": (
             {
-                "name": rec["display_name"] or "Nukkad analyst",
+                "name": rec["display_name"] or "Siteline analyst",
                 "on": rec["published_at"].date().isoformat(),
             }
             if published and rec["published_at"]

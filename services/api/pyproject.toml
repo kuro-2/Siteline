@@ -1,7 +1,7 @@
 [project]
-name = "nukkad-api"
+name = "siteline-api"
 version = "0.1.0"
-description = "Nukkad API and data engine"
+description = "Siteline API and data engine"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [

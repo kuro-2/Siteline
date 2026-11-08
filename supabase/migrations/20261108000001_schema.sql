@@ -1,4 +1,4 @@
--- Nukkad schema. Source of truth: docs/03-database.md (keep both in sync).
+-- Siteline schema. Source of truth: docs/03-database.md (keep both in sync).
 
 create extension if not exists postgis with schema extensions;
 create extension if not exists pgcrypto with schema extensions;
@@ -89,7 +89,7 @@ create table public.place_review_themes (
   summarized_at timestamptz not null default now()
 );
 
-create table public.surveyors (            -- links a KoboToolbox username to a Nukkad user
+create table public.surveyors (            -- links a KoboToolbox username to a Siteline user
   kobo_username text primary key,
   user_id uuid references auth.users(id) on delete set null,
   display_name text not null,

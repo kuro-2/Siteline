@@ -25,5 +25,5 @@ def configure(json: bool = True, level: int = logging.INFO) -> None:
     )
 
 
-def get_logger(name: str = "nukkad") -> structlog.stdlib.BoundLogger:
+def get_logger(name: str = "siteline") -> structlog.stdlib.BoundLogger:
     return structlog.get_logger(name)  # type: ignore[no-any-return]

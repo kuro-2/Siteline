@@ -32,7 +32,7 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    app_name: str = "Nukkad"
+    app_name: str = "Siteline"
     app_env: str = "local"
     web_origin: str = "http://localhost:3000"
     api_base_url: str = "http://localhost:8000"

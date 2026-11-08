@@ -1,4 +1,4 @@
-"""Map source tags/types to Nukkad categories. Pure functions."""
+"""Map source tags/types to Siteline categories. Pure functions."""
 
 from __future__ import annotations
 

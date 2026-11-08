@@ -7,7 +7,7 @@ export interface SurveyDraft {
   pending: boolean; // answers are final and waiting to be sent
 }
 
-const key = (slug: string) => `nukkad.survey.${slug}`;
+const key = (slug: string) => `siteline.survey.${slug}`;
 
 function uuid(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
@@ -41,7 +41,7 @@ export function clearDraft(slug: string, store: Storage = localStorage): void {
 }
 
 export function deviceId(store: Storage = localStorage): string {
-  const k = "nukkad.device";
+  const k = "siteline.device";
   try {
     const v = store.getItem(k);
     if (v) return v;

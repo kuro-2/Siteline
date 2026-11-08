@@ -1,5 +1,5 @@
 /*
- * Nukkad design tokens — implements docs/06-design-system.md §2 exactly.
+ * Siteline design tokens — implements docs/06-design-system.md §2 exactly.
  * Light is the default; dark follows the system, and [data-theme] can force either.
  */
 
