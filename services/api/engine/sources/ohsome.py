@@ -1,37 +1,62 @@
-"""ohsome API (HeiGIT): what OSM looked like on a past date. Free; cached on disk."""
+"""ohsome API (HeiGIT): how many OSM features of a kind existed in each cell on past dates.
+
+The public instance allows aggregate endpoints (counts) but not raw extraction, so the
+backtest works on per-cell counts. Responses are cached on disk.
+"""
 
 from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Iterable, Sequence
 from pathlib import Path
-from typing import Any
 
+import h3
 import httpx
-from shapely.geometry import mapping
-from shapely.geometry.base import BaseGeometry
 
-from engine.sources.categories import COMMERCIAL_AMENITIES
-from engine.sources.osm import OsmPlace
+from engine.sources.categories import COMMERCIAL_AMENITIES, CategoryDef
 
-FILTER = (
-    "(shop=* or office=* or craft=* or healthcare=* or amenity in ("
+ALL_BUSINESSES = (
+    "shop=* or office=* or craft=* or healthcare=* or amenity in ("
     + ", ".join(sorted(COMMERCIAL_AMENITIES))
-    + ")) and (geometry:point or geometry:polygon)"
+    + ")"
 )
 
 
-def parse_features(payload: dict[str, Any]) -> list[OsmPlace]:
-    out: list[OsmPlace] = []
-    for f in payload.get("features", []):
-        props = dict(f.get("properties") or {})
-        geom = f.get("geometry") or {}
-        if geom.get("type") != "Point":
-            continue
-        lng, lat = geom["coordinates"][:2]
-        osm_id = str(props.pop("@osmId", ""))
-        tags = {k: str(v) for k, v in props.items() if not k.startswith("@")}
-        out.append(OsmPlace(osm_id, tags.get("name"), tags, float(lat), float(lng)))
+def category_filter(cat: CategoryDef) -> str:
+    """OSM tag rules → ohsome filter, e.g. (amenity=pharmacy or shop=chemist)."""
+    rules = []
+    for rule in cat.osm_tags:
+        parts = [f"{k}={v}" for k, v in rule.items()]
+        rules.append(parts[0] if len(parts) == 1 else "(" + " and ".join(parts) + ")")
+    return "(" + " or ".join(rules) + ")"
+
+
+def cells_geojson(cells: Iterable[str]) -> str:
+    feats = []
+    for c in sorted(cells):
+        ring = [[lng, lat] for lat, lng in h3.cell_to_boundary(c)]
+        ring.append(ring[0])
+        feats.append(
+            {
+                "type": "Feature",
+                "id": c,
+                "properties": {"id": c},
+                "geometry": {"type": "Polygon", "coordinates": [ring]},
+            }
+        )
+    return json.dumps({"type": "FeatureCollection", "features": feats})
+
+
+def parse_counts(payload: dict[str, object]) -> dict[str, dict[str, int]]:
+    """{cell: {"YYYY-MM-DD": count}}"""
+    out: dict[str, dict[str, int]] = {}
+    for g in payload.get("groupByResult", []):  # type: ignore[union-attr]
+        cell = str(g["groupByObject"])  # type: ignore[index]
+        out[cell] = {
+            str(r["timestamp"])[:10]: round(float(r["value"]))  # type: ignore[index]
+            for r in g["result"]  # type: ignore[index]
+        }
     return out
 
 
@@ -43,23 +68,17 @@ class OhsomeClient:
         self.cache_dir = cache_dir
         self.http = http or httpx.Client(timeout=300, headers={"User-Agent": user_agent})
 
-    def centroids(self, region: BaseGeometry, when: str) -> list[OsmPlace]:
-        bpolys = json.dumps(
-            {
-                "type": "FeatureCollection",
-                "features": [
-                    {"type": "Feature", "properties": {"id": "area"}, "geometry": mapping(region)}
-                ],
-            }
-        )
-        body = {"bpolys": bpolys, "time": when, "filter": FILTER, "properties": "tags"}
+    def counts_by_cell(
+        self, cells: Iterable[str], osm_filter: str, times: Sequence[str]
+    ) -> dict[str, dict[str, int]]:
+        body = {"bpolys": cells_geojson(cells), "time": ",".join(times), "filter": osm_filter}
         key = hashlib.sha256(json.dumps(body, sort_keys=True).encode()).hexdigest()[:16]
-        path = self.cache_dir / f"{key}.json"
+        path = self.cache_dir / f"counts-{key}.json"
         if path.exists():
-            return parse_features(json.loads(path.read_text(encoding="utf-8")))
-        r = self.http.post(f"{self.base_url}/elements/centroid", data=body)
+            return parse_counts(json.loads(path.read_text(encoding="utf-8")))
+        r = self.http.post(f"{self.base_url}/elements/count/groupBy/boundary", data=body)
         r.raise_for_status()
         payload = r.json()
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(payload), encoding="utf-8")
-        return parse_features(payload)
+        return parse_counts(payload)

@@ -147,23 +147,26 @@ def ingest_ohsome(
     on: Annotated[str, typer.Option(help="Date, YYYY-MM-DD")] = "2023-06-01",
     dry_run: DryOpt = False,
 ) -> None:
-    """Fetch (and cache) OSM as it was on a date. Used by backtests."""
-    from engine.backtest.run import region_for
+    """Fetch (and cache) per-cell OSM counts as they were on a date. Used by backtests."""
     from engine.db import connect
-    from engine.features.build import CellRow
-    from engine.repo import get_area, grid_cells
+    from engine.repo import get_area, grid_cells, load_categories
     from engine.settings import REPO_ROOT
-    from engine.sources.ohsome import OhsomeClient
+    from engine.sources.ohsome import OhsomeClient, category_filter
 
     def fn() -> dict[str, Any]:
         s = get_settings()
         with connect() as conn:
             a = get_area(conn, area or _default_area())
-            cells = {c["h3"]: CellRow(c["h3"], c["in_area"], None) for c in grid_cells(conn, a.id)}
+            cells = [c["h3"] for c in grid_cells(conn, a.id)]
+            cats = load_categories(conn)
         if dry_run:
-            return {"calls": 1, "cost_usd": 0}
+            return {"calls": len(cats), "cost_usd": 0}
         client = OhsomeClient(s.ohsome_url, s.user_agent, REPO_ROOT / "data" / "cache" / "ohsome")
-        return {"date": on, "places": len(client.centroids(region_for(cells), on))}
+        out = {}
+        for cat in cats:
+            counts = client.counts_by_cell(cells, category_filter(cat), [on])
+            out[cat.slug] = sum(v.get(on, 0) for v in counts.values())
+        return {"date": on, "outlets": out}
 
     _run(fn)
 

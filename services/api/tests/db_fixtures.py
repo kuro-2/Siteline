@@ -56,8 +56,14 @@ class TestUser:
     def token(self) -> str:
         secret = get_settings().supabase_jwt_secret
         now = int(time.time())
-        claims = {"sub": self.id, "aud": "authenticated", "role": "authenticated",
-                  "email": self.email, "iat": now, "exp": now + 3600}
+        claims = {
+            "sub": self.id,
+            "aud": "authenticated",
+            "role": "authenticated",
+            "email": self.email,
+            "iat": now,
+            "exp": now + 3600,
+        }
         return jwt.encode(claims, secret, algorithm="HS256")
 
     def headers(self) -> dict[str, str]:
@@ -85,16 +91,30 @@ def cleanup(conn: psycopg.Connection[dict[str, Any]]) -> None:
     a = conn.execute("select id from areas where slug = %s", (TEST_AREA,)).fetchone()
     if a:
         aid = a["id"]
-        conn.execute("delete from data_tasks where h3 in (select h3 from h3_cells where area_id=%s)", (aid,))
+        conn.execute(
+            "delete from data_tasks where h3 in (select h3 from h3_cells where area_id=%s)", (aid,)
+        )
         conn.execute("delete from recommendations where area_id = %s", (aid,))
         conn.execute("delete from backtests where area_id = %s", (aid,))
         conn.execute("delete from model_runs where area_id = %s", (aid,))
-        conn.execute("delete from survey_responses where survey_id in (select id from surveys where area_id=%s)", (aid,))
+        conn.execute(
+            "delete from survey_responses where survey_id in (select id from surveys where area_id=%s)",
+            (aid,),
+        )
         conn.execute("delete from surveys where area_id = %s", (aid,))
-        conn.execute("delete from ground_counts where h3 in (select h3 from h3_cells where area_id=%s)", (aid,))
-        conn.execute("delete from rent_observations where h3 in (select h3 from h3_cells where area_id=%s)", (aid,))
+        conn.execute(
+            "delete from ground_counts where h3 in (select h3 from h3_cells where area_id=%s)",
+            (aid,),
+        )
+        conn.execute(
+            "delete from rent_observations where h3 in (select h3 from h3_cells where area_id=%s)",
+            (aid,),
+        )
         conn.execute("delete from saved_areas where area_id = %s", (aid,))
-        conn.execute("update profiles set home_h3 = null where home_h3 in (select h3 from h3_cells where area_id=%s)", (aid,))
+        conn.execute(
+            "update profiles set home_h3 = null where home_h3 in (select h3 from h3_cells where area_id=%s)",
+            (aid,),
+        )
         conn.execute("delete from places where source_id like 'test/%%'")
         conn.execute("delete from areas where id = %s", (aid,))
     conn.execute("delete from auth.users where email like '%%@test.invalid'")
@@ -119,9 +139,18 @@ def build_scenario() -> Iterator[Scenario]:
     cleanup(conn)
     lat, lng = CENTRE
     d = 0.008
-    poly = {"type": "Polygon", "coordinates": [[[lng - d, lat - d], [lng + d, lat - d],
-                                                [lng + d, lat + d], [lng - d, lat + d],
-                                                [lng - d, lat - d]]]}
+    poly = {
+        "type": "Polygon",
+        "coordinates": [
+            [
+                [lng - d, lat - d],
+                [lng + d, lat - d],
+                [lng + d, lat + d],
+                [lng - d, lat + d],
+                [lng - d, lat - d],
+            ]
+        ],
+    }
     row = conn.execute(
         """insert into areas (slug, name, boundary, is_published)
            values (%s, 'Test Bazaar', extensions.st_multi(extensions.st_setsrid(
@@ -131,11 +160,17 @@ def build_scenario() -> Iterator[Scenario]:
     assert row
     area_id = str(row["id"])
     build_area_grid(TEST_AREA, dry_run=False)
-    cells = [r["h3"] for r in conn.execute(
-        "select h3 from h3_cells where area_id = %s order by h3", (area_id,)).fetchall()]
+    cells = [
+        r["h3"]
+        for r in conn.execute(
+            "select h3 from h3_cells where area_id = %s order by h3", (area_id,)
+        ).fetchall()
+    ]
     centre = h3.latlng_to_cell(lat, lng, 9)
-    conn.execute("update h3_cells set population = 2500, population_source_year = 2020 where area_id = %s",
-                 (area_id,))
+    conn.execute(
+        "update h3_cells set population = 2500, population_source_year = 2020 where area_id = %s",
+        (area_id,),
+    )
     cats = {r["slug"]: r["id"] for r in conn.execute("select slug, id from categories").fetchall()}
     # pharmacies only on the far edge of the area → the centre should look under-supplied
     inside = set(cells)

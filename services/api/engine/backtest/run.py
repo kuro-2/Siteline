@@ -12,9 +12,6 @@ from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from typing import Any
 
-import h3
-from shapely.ops import unary_union
-
 from engine.backtest.metrics import (
     calibration_by_decile,
     precision_recall_at_k,
@@ -23,11 +20,9 @@ from engine.backtest.metrics import (
     roc_auc,
 )
 from engine.features.build import CellRow, Inputs, PlaceRow, build_category
-from engine.geo.grid import cell_polygon
 from engine.scoring.config import ScoringConfig, get_config
 from engine.scoring.core import score_cell
-from engine.sources.categories import CategoryDef, is_business, match_osm
-from engine.sources.osm import OsmPlace
+from engine.sources.categories import CategoryDef
 
 KS = (3, 5, 10)
 
@@ -42,23 +37,23 @@ class CategoryResult:
     beats_baselines: bool
 
 
-def places_to_rows(
-    places: list[OsmPlace], cats: list[CategoryDef], cells: set[str], resolution: int
-) -> tuple[list[PlaceRow], dict[str, tuple[str, str | None]]]:
+def counts_to_rows(
+    by_category: dict[str, dict[str, int]], all_businesses: dict[str, int]
+) -> list[PlaceRow]:
+    """Turn per-cell counts into PlaceRows (one per outlet). Businesses not in any of our
+    categories still count for the activity proxy."""
     rows: list[PlaceRow] = []
-    index: dict[str, tuple[str, str | None]] = {}
-    for p in places:
-        if not is_business(p.tags):
-            continue
-        cell = h3.latlng_to_cell(p.lat, p.lng, resolution)
-        if cell not in cells:
-            continue
-        cat = match_osm(p.tags, cats)
-        rows.append(
-            PlaceRow(cell, cat.slug if cat else None, None, source="osm", place_id=p.source_id)
+    in_cats: dict[str, int] = {}
+    for slug, cells in by_category.items():
+        for cell, n in cells.items():
+            rows.extend(PlaceRow(cell, slug, None, source="osm") for _ in range(max(0, n)))
+            in_cats[cell] = in_cats.get(cell, 0) + max(0, n)
+    for cell, n in all_businesses.items():
+        rows.extend(
+            PlaceRow(cell, None, None, source="osm")
+            for _ in range(max(0, n - in_cats.get(cell, 0)))
         )
-        index[p.source_id] = (cell, cat.slug if cat else None)
-    return rows, index
+    return rows
 
 
 def evaluate_category(
@@ -95,16 +90,19 @@ def run_backtest_pure(
     *,
     cells: dict[str, CellRow],
     cats: list[CategoryDef],
-    past: list[OsmPlace],
-    future: list[OsmPlace],
+    past: dict[str, dict[str, int]],  # {category slug: {cell: count at as_of}}
+    future: dict[str, dict[str, int]],  # {category slug: {cell: count at evaluate_on}}
+    past_activity: dict[str, int],  # {cell: all businesses at as_of}
     as_of: date,
     cfg: ScoringConfig,
     population_year: int | None,
 ) -> list[CategoryResult]:
-    grid = set(cells)
-    past_rows, past_idx = places_to_rows(past, cats, grid, cfg.grid.resolution)
-    _, future_idx = places_to_rows(future, cats, grid, cfg.grid.resolution)
-    data = Inputs(cells=cells, places=past_rows, population_year=population_year, osm_as_of=as_of)
+    data = Inputs(
+        cells=cells,
+        places=counts_to_rows(past, past_activity),
+        population_year=population_year,
+        osm_as_of=as_of,
+    )
     out: list[CategoryResult] = []
     for cat in cats:
         if cat.slug not in cfg.categories:
@@ -118,15 +116,31 @@ def run_backtest_pure(
                 continue
             scores[cell] = score_cell(inp, cfg, ccfg).score
             pops[cell] = inp.pop_catchment
-        # a cell is positive if a new outlet of this category appeared in it and survived
-        positives = {
-            c
-            for oid, (c, slug) in future_idx.items()
-            if slug == cat.slug and oid not in past_idx and c in scores
-        }
+        before, after = past.get(cat.slug, {}), future.get(cat.slug, {})
         if not scores:
+            out.append(
+                CategoryResult(
+                    cat.slug,
+                    cat.name,
+                    0,
+                    0,
+                    {
+                        "not_testable": "none were mapped inside the area on the as-of date",
+                        "random_precision": 0.0,
+                        "calibration": [],
+                        "outlets_as_of": sum(before.values()),
+                        "outlets_evaluate_on": sum(after.values()),
+                    },
+                    False,
+                )
+            )
             continue
+        # A cell is positive if it had more outlets of this kind on evaluate_on than on as_of
+        # (net new, still mapped). Counts can't tell an opening from a late mapping.
+        positives = {c for c in scores if after.get(c, 0) > before.get(c, 0)}
         m, beats = evaluate_category(scores, pops, positives)
+        m["outlets_as_of"] = sum(v for c, v in before.items() if c in scores)
+        m["outlets_evaluate_on"] = sum(v for c, v in after.items() if c in scores)
         out.append(CategoryResult(cat.slug, cat.name, len(scores), len(positives), m, beats))
     return out
 
@@ -162,6 +176,11 @@ def report_markdown(
     ]
     for r in results:
         m = r.metrics
+        if "not_testable" in m:
+            lines.append(
+                f"| {r.name} | – | – | – | – | – | – | – | not testable: {m['not_testable']} |"
+            )
+            continue
         lines.append(
             f"| {r.name} | {r.cells} | {r.positives} | {m.get('precision@5', '–')} | "
             f"{m.get('population_only_precision@5', '–')} | {m['random_precision']} | "
@@ -169,6 +188,23 @@ def report_markdown(
             f"{m.get('population_only_roc_auc') if m.get('population_only_roc_auc') is not None else '–'} | "
             f"{'yes' if r.beats_baselines else 'no'} |"
         )
+    growth = [
+        (r.name, r.metrics.get("outlets_as_of", 0), r.metrics.get("outlets_evaluate_on", 0))
+        for r in results
+    ]
+    lines += ["", "## How much the map itself changed", ""]
+    for name, a, b in growth:
+        lines.append(
+            f"- {name}: {a} mapped on {as_of.isoformat()}, {b} on {evaluate_on.isoformat()}."
+        )
+    if any(a == 0 or b >= 2 * max(a, 1) for _, a, b in growth):
+        lines += [
+            "",
+            '**Warning: the map grew a lot over this period.** Most "new outlets" are probably '
+            "shops that already existed and were mapped late, not shops that opened. Treat these "
+            "results as a test of the pipeline, not of the model. A fair test needs either a "
+            "stable map period or ground counts repeated over time.",
+        ]
     lines += [
         "",
         "## What this test can't tell us",
@@ -193,10 +229,6 @@ def report_markdown(
         lines.append(f"- **{r.name}**: {cal or 'no data'}")
     lines.append("")
     return "\n".join(lines)
-
-
-def region_for(cells: dict[str, CellRow]) -> Any:
-    return unary_union([cell_polygon(c) for c in cells])
 
 
 def results_json(results: list[CategoryResult]) -> dict[str, Any]:

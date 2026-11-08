@@ -28,7 +28,7 @@ from engine.sources.categories import (
 )
 from engine.sources.dedupe import PlaceRef, find_merges, name_similarity, normalise_name
 from engine.sources.kobo import parse_geopoint, parse_submission
-from engine.sources.ohsome import parse_features
+from engine.sources.ohsome import OhsomeClient, category_filter, cells_geojson, parse_counts
 from engine.sources.osm import OverpassClient, build_query, parse_elements
 
 CATS = [
@@ -285,32 +285,47 @@ def test_overpass_caches_and_backs_off(tmp_path: Path) -> None:
     )
     data, cached = client.fetch("q")
     assert data == {"elements": []} and not cached and waits == [15.0]
-    data2, cached2 = client.fetch("q")
+    _, cached2 = client.fetch("q")
     assert cached2 and route.call_count == 2
 
 
 # ------------------------------------------------------------------ ohsome / kobo
-def test_ohsome_parse() -> None:
+def test_ohsome_counts_and_filters() -> None:
+    import h3 as _h3
+
+    cat = CATS[0]
+    assert category_filter(cat) == "(amenity=pharmacy or shop=chemist)"
+    assert (
+        category_filter(CategoryDef("9", "x", "X", [{"shop": "a", "b": "c"}], [], 1))
+        == "((shop=a and b=c))"
+    )
+    c = _h3.latlng_to_cell(26.18, 91.79, 9)
+    gj = json.loads(cells_geojson([c]))
+    ring = gj["features"][0]["geometry"]["coordinates"][0]
+    assert ring[0] == ring[-1] and len(ring) == 7
     payload = {
-        "features": [
+        "groupByResult": [
             {
-                "type": "Feature",
-                "geometry": {"type": "Point", "coordinates": [91.79, 26.18]},
-                "properties": {
-                    "@osmId": "node/9",
-                    "@snapshotTimestamp": "x",
-                    "amenity": "pharmacy",
-                },
-            },
-            {
-                "type": "Feature",
-                "geometry": {"type": "LineString", "coordinates": []},
-                "properties": {},
-            },
+                "groupByObject": c,
+                "result": [
+                    {"timestamp": "2023-06-01T00:00:00Z", "value": 2.0},
+                    {"timestamp": "2025-06-01T00:00:00Z", "value": 5.0},
+                ],
+            }
         ]
     }
-    out = parse_features(payload)
-    assert len(out) == 1 and out[0].source_id == "node/9" and out[0].tags == {"amenity": "pharmacy"}
+    assert parse_counts(payload) == {c: {"2023-06-01": 2, "2025-06-01": 5}}
+
+
+@respx.mock
+def test_ohsome_client_caches(tmp_path: Path) -> None:
+    route = respx.post("https://ohsome.test/v1/elements/count/groupBy/boundary").mock(
+        return_value=httpx.Response(200, json={"groupByResult": []})
+    )
+    client = OhsomeClient("https://ohsome.test/v1", "test", tmp_path, http=httpx.Client())
+    assert client.counts_by_cell(["893ce156363ffff"], "shop=*", ["2023-06-01"]) == {}
+    assert client.counts_by_cell(["893ce156363ffff"], "shop=*", ["2023-06-01"]) == {}
+    assert route.call_count == 1
 
 
 def test_kobo_parse() -> None:

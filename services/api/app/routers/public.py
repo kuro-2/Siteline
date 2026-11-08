@@ -11,11 +11,25 @@ from pydantic import BaseModel, Field
 
 from app.errors import ApiError, not_found
 from app.limits import limiter
+from app.schemas.public import (
+    AreaDetail,
+    AreaSummary,
+    Category,
+    CellReport,
+    CheckResponse,
+    ErrorResponse,
+    GeocodeResult,
+    Health,
+    MapResponse,
+    TopPick,
+)
 from app.services.report import build_report, category_by_slug, latest_run, neighbour_advice
 from engine.db import connect
 from engine.scoring.config import get_config
 
-router = APIRouter(tags=["public"])
+router = APIRouter(
+    tags=["public"], responses={404: {"model": ErrorResponse}, 422: {"model": ErrorResponse}}
+)
 
 FRESHNESS_JOBS = {
     "OpenStreetMap": "ingest.osm",
@@ -26,7 +40,7 @@ FRESHNESS_JOBS = {
 }
 
 
-@router.get("/health")
+@router.get("/health", response_model=Health)
 def health() -> dict[str, Any]:
     try:
         with connect() as conn:
@@ -37,7 +51,7 @@ def health() -> dict[str, Any]:
     return {"status": "ok", "db": db}
 
 
-@router.get("/areas")
+@router.get("/areas", response_model=list[AreaSummary])
 def areas() -> list[dict[str, Any]]:
     with connect() as conn:
         rows = conn.execute(
@@ -58,7 +72,7 @@ def areas() -> list[dict[str, Any]]:
     ]
 
 
-@router.get("/areas/{slug}")
+@router.get("/areas/{slug}", response_model=AreaDetail)
 def area(slug: str) -> dict[str, Any]:
     with connect() as conn:
         r = conn.execute(
@@ -85,6 +99,11 @@ def area(slug: str) -> dict[str, Any]:
         cells = conn.execute(
             "select count(*) as n from h3_cells where area_id = %s and in_area", (r["id"],)
         ).fetchone()
+        survey = conn.execute(
+            """select slug from surveys where area_id = %s and is_active
+               and (closes_at is null or closes_at > now()) order by version desc limit 1""",
+            (r["id"],),
+        ).fetchone()
     return {
         "id": str(r["id"]),
         "slug": r["slug"],
@@ -94,11 +113,12 @@ def area(slug: str) -> dict[str, Any]:
         "bbox": [r["w"], r["s"], r["e"], r["n"]],
         "centre": [r["clng"], r["clat"]],
         "cells": cells["n"] if cells else 0,
+        "survey_slug": survey["slug"] if survey else None,
         "freshness": fresh,
     }
 
 
-@router.get("/categories")
+@router.get("/categories", response_model=list[Category])
 def categories() -> list[dict[str, Any]]:
     cfg = get_config()
     with connect() as conn:
@@ -123,7 +143,7 @@ def _area_id(conn: Any, slug: str) -> str:
     return str(r["id"])
 
 
-@router.get("/areas/{slug}/map")
+@router.get("/areas/{slug}/map", response_model=MapResponse)
 def area_map(slug: str, response: Response, category: str = Query(...)) -> dict[str, Any]:
     with connect() as conn:
         area_id = _area_id(conn, slug)
@@ -155,7 +175,7 @@ def area_map(slug: str, response: Response, category: str = Query(...)) -> dict[
     }
 
 
-@router.get("/areas/{slug}/top")
+@router.get("/areas/{slug}/top", response_model=list[TopPick])
 def area_top(
     slug: str, category: str | None = None, limit: int = Query(3, ge=1, le=20)
 ) -> list[dict[str, Any]]:
@@ -186,7 +206,7 @@ def area_top(
     ]
 
 
-@router.get("/cells/{cell}/report")
+@router.get("/cells/{cell}/report", response_model=CellReport)
 def cell_report(cell: str, category: str = Query(...)) -> dict[str, Any]:
     with connect() as conn:
         return build_report(conn, cell, category)
@@ -198,7 +218,7 @@ class CheckBody(BaseModel):
     category: str
 
 
-@router.post("/check")
+@router.post("/check", response_model=CheckResponse)
 @limiter.limit("30/minute")
 def check(request: Request, body: CheckBody) -> dict[str, Any]:
     _ = request
@@ -226,3 +246,74 @@ def check(request: Request, body: CheckBody) -> dict[str, Any]:
             )
         report = build_report(conn, cell, body.category)
     return {"report": report, "advice": neighbour_advice(report)}
+
+
+_geocode_cache: dict[str, list[dict[str, Any]]] = {}
+_last_geocode = [0.0]
+
+
+@router.get("/areas/{slug}/geocode", response_model=list[GeocodeResult])
+@limiter.limit("20/minute")
+def geocode(
+    request: Request, slug: str, q: str = Query(min_length=2, max_length=120)
+) -> list[dict[str, Any]]:
+    """Street / landmark search inside one area (OpenStreetMap Nominatim, cached,
+    at most one upstream request per second as its usage policy asks)."""
+    import time
+
+    import httpx
+
+    from engine.settings import get_settings
+
+    _ = request
+    key = f"{slug}:{q.strip().lower()}"
+    if key in _geocode_cache:
+        return _geocode_cache[key]
+    with connect() as conn:
+        a = conn.execute(
+            """select extensions.st_xmin(boundary) as w, extensions.st_ymin(boundary) as s,
+                      extensions.st_xmax(boundary) as e, extensions.st_ymax(boundary) as n
+               from areas where slug = %s and is_published""",
+            (slug,),
+        ).fetchone()
+    if not a:
+        raise not_found("area")
+    wait = 1.0 - (time.monotonic() - _last_geocode[0])
+    if wait > 0:
+        time.sleep(wait)
+    _last_geocode[0] = time.monotonic()
+    s = get_settings()
+    pad = 0.01
+    try:
+        r = httpx.get(
+            "https://nominatim.openstreetmap.org/search",
+            params={
+                "q": f"{q}, Guwahati",
+                "format": "jsonv2",
+                "limit": 6,
+                "bounded": 1,
+                "viewbox": f"{a['w'] - pad},{a['n'] + pad},{a['e'] + pad},{a['s'] - pad}",
+            },
+            headers={"User-Agent": s.user_agent},
+            timeout=10,
+        )
+        r.raise_for_status()
+    except httpx.HTTPError as e:
+        raise ApiError(
+            503,
+            "search_unavailable",
+            "Street search isn't answering right now.",
+            "Drop a pin on the map instead.",
+        ) from e
+    out = [
+        {
+            "name": x.get("display_name", "").split(",")[0]
+            + ", "
+            + ", ".join(x.get("display_name", "").split(",")[1:3]).strip(),
+            "lat": float(x["lat"]),
+            "lng": float(x["lon"]),
+        }
+        for x in r.json()
+    ]
+    _geocode_cache[key] = out
+    return out

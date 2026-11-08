@@ -28,7 +28,9 @@ def as_role(conn: psycopg.Connection[dict[str, Any]], role: str, uid: str | None
     conn.execute("select set_config('request.jwt.claims', %s, true)", (json.dumps(claims),))
 
 
-def query(role: str, sql: str, params: tuple[Any, ...] = (), uid: str | None = None) -> list[dict[str, Any]]:
+def query(
+    role: str, sql: str, params: tuple[Any, ...] = (), uid: str | None = None
+) -> list[dict[str, Any]]:
     conn = raw_conn()
     try:
         with conn.transaction():
@@ -55,7 +57,10 @@ def test_anon_cannot_read_drafts_or_scores(scen: Scenario) -> None:
 
 
 def test_public_views_only_show_published(scen: Scenario) -> None:
-    assert query("anon", "select * from public_recommendations where area_id = %s", (scen.area_id,)) == []
+    assert (
+        query("anon", "select * from public_recommendations where area_id = %s", (scen.area_id,))
+        == []
+    )
     rows = query("anon", "select name from public_places where name like 'Test Medicos%%'")
     assert len(rows) == 6
 
@@ -70,14 +75,21 @@ def test_resident_cannot_change_role(scen: Scenario) -> None:
         # display name is allowed
         with conn.transaction():
             as_role(conn, "authenticated", u.id)
-            n = conn.execute("update profiles set display_name = 'Mina' where id = %s", (u.id,)).rowcount
+            n = conn.execute(
+                "update profiles set display_name = 'Mina' where id = %s", (u.id,)
+            ).rowcount
         assert n == 1
         # and nobody else's row is visible or editable
         with conn.transaction():
             as_role(conn, "authenticated", u.id)
             other = scen.users["other"].id
             assert conn.execute("select * from profiles where id = %s", (other,)).fetchall() == []
-            assert conn.execute("update profiles set display_name='x' where id = %s", (other,)).rowcount == 0
+            assert (
+                conn.execute(
+                    "update profiles set display_name='x' where id = %s", (other,)
+                ).rowcount
+                == 0
+            )
     finally:
         conn.close()
 
@@ -99,7 +111,9 @@ def test_resident_cannot_insert_survey_response_directly(scen: Scenario) -> None
 
 def test_analyst_can_read_and_review(scen: Scenario) -> None:
     a = scen.users["analyst"]
-    rows = query("authenticated", "select id from recommendations where id = %s", (scen.rec_id,), a.id)
+    rows = query(
+        "authenticated", "select id from recommendations where id = %s", (scen.rec_id,), a.id
+    )
     assert len(rows) == 1
     assert len(query("authenticated", "select 1 from scores limit 1", (), a.id)) == 1
     conn = raw_conn()

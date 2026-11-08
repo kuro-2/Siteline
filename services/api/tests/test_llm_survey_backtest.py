@@ -29,7 +29,6 @@ from engine.llm.themes import summarise_reviews
 from engine.scoring.config import ScoringConfig
 from engine.settings import Settings
 from engine.sources.categories import CategoryDef
-from engine.sources.osm import OsmPlace
 from engine.survey import default_questions, need_indicator, validate_answers
 
 PAYLOAD: dict[str, Any] = {
@@ -224,21 +223,32 @@ def test_backtest_pure_end_to_end(cfg: ScoringConfig) -> None:
         c: CellRow(c, h3.grid_distance(centre, c) <= 4, 2000.0) for c in h3.grid_disk(centre, 9)
     }
     cats = [CategoryDef("1", "pharmacy", "Pharmacy", [{"amenity": "pharmacy"}], [], 3)]
-    lat, lng = h3.cell_to_latlng(centre)
     far = next(c for c, r in cells.items() if r.in_area and h3.grid_distance(centre, c) == 4)
-    flat, flng = h3.cell_to_latlng(far)
-    past = [OsmPlace("node/1", "Old", {"amenity": "pharmacy"}, flat, flng)]
-    future = [*past, OsmPlace("node/2", "New", {"amenity": "pharmacy"}, lat, lng)]
+    past = {"pharmacy": {far: 1}}
+    future = {"pharmacy": {far: 1, centre: 1}}
     results = run_backtest_pure(
         cells=cells,
         cats=cats,
         past=past,
         future=future,
+        past_activity={far: 3},
         as_of=date(2023, 6, 1),
         cfg=cfg,
         population_year=2020,
     )
     assert len(results) == 1 and results[0].positives == 1
+    assert (
+        results[0].metrics["outlets_as_of"] == 1 and results[0].metrics["outlets_evaluate_on"] == 2
+    )
     md = report_markdown("Test area", date(2023, 6, 1), date(2025, 6, 1), results, "abc")
     assert "What this test can't tell us" in md and "| Pharmacy |" in md
+    assert "the map grew a lot" in md
     assert results_json(results)["categories"]["pharmacy"]["positives"] == 1
+
+
+def test_counts_to_rows() -> None:
+    from engine.backtest.run import counts_to_rows
+
+    rows = counts_to_rows({"pharmacy": {"a": 2}}, {"a": 5, "b": 1})
+    assert sum(1 for r in rows if r.category_slug == "pharmacy") == 2
+    assert sum(1 for r in rows if r.category_slug is None) == 4

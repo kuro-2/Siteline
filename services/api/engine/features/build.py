@@ -279,7 +279,7 @@ def build_category(
             area_supply += g_here.informal_count * cat.informal_weight
     area_correction = area_ratio if area_ratio is not None else 1.0
     area_supply *= max(cfg.ground_correction.min, min(cfg.ground_correction.max, area_correction))
-    ppos = [1] * int(round(area_supply))  # n for the feature record
+    benchmark_n = round(area_supply)  # outlets behind the benchmark, for the feature record
     if benchmark_override:
         benchmark: float | None = float(benchmark_override)
     elif pop_known and area_pop > 0 and area_supply >= cfg.score.min_supply:
@@ -349,7 +349,7 @@ def build_category(
                 round(benchmark, 1) if benchmark else None,
                 "whole area" if not benchmark_override else "category setting",
                 places_as_of,
-                len(ppos),
+                benchmark_n,
             ),
             "survey_need": _feature(
                 round(v["share"], 3) if v["share"] is not None else None,

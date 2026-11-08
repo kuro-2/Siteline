@@ -6,7 +6,7 @@ import json
 from datetime import UTC, date, datetime
 from typing import Any
 
-from engine.backtest.run import region_for, report_markdown, results_json, run_backtest_pure
+from engine.backtest.run import report_markdown, results_json, run_backtest_pure
 from engine.commands.score import engine_version
 from engine.db import connect
 from engine.features.build import CellRow
@@ -43,21 +43,29 @@ def backtest(area_slug: str, as_of: date, evaluate_on: date, dry_run: bool) -> d
         )
     pop_year = max((r["population_source_year"] or 0) for r in cell_rows) or None
     client = OhsomeClient(s.ohsome_url, s.user_agent, REPO_ROOT / "data" / "cache" / "ohsome")
-    region = region_for(cells)
     args = {"area": area_slug, "as_of": as_of.isoformat(), "evaluate_on": evaluate_on.isoformat()}
     with job_run("backtest.run", args, dry_run=dry_run) as run:
         if dry_run:
             run.set("would_call_ohsome", 2)
             return {"calls": 2, "cost_usd": 0}
-        past = client.centroids(region, as_of.isoformat())
-        future = client.centroids(region, evaluate_on.isoformat())
-        run.set("osm_past", len(past))
-        run.set("osm_future", len(future))
+        from engine.sources.ohsome import ALL_BUSINESSES, category_filter
+
+        times = [as_of.isoformat(), evaluate_on.isoformat()]
+        past: dict[str, dict[str, int]] = {}
+        future: dict[str, dict[str, int]] = {}
+        for cat in cats:
+            counts = client.counts_by_cell(cells.keys(), category_filter(cat), times)
+            past[cat.slug] = {c: v.get(times[0], 0) for c, v in counts.items()}
+            future[cat.slug] = {c: v.get(times[1], 0) for c, v in counts.items()}
+        activity = client.counts_by_cell(cells.keys(), ALL_BUSINESSES, times[:1])
+        past_activity = {c: v.get(times[0], 0) for c, v in activity.items()}
+        run.set("osm_past", sum(past_activity.values()))
         results = run_backtest_pure(
             cells=cells,
             cats=cats,
             past=past,
             future=future,
+            past_activity=past_activity,
             as_of=as_of,
             cfg=cfg,
             population_year=pop_year,
@@ -67,7 +75,7 @@ def backtest(area_slug: str, as_of: date, evaluate_on: date, dry_run: bool) -> d
         metrics = results_json(results)
         out_dir = REPO_ROOT / "docs" / "backtests"
         out_dir.mkdir(parents=True, exist_ok=True)
-        path = out_dir / f"{datetime.now(UTC).date().isoformat()}-{area_slug}.md"
+        path = out_dir / f"{area_slug}-{as_of.isoformat()}-to-{evaluate_on.isoformat()}.md"
         path.write_text(md, encoding="utf-8")
         with connect() as conn:
             mr = conn.execute(
