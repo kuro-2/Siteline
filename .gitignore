@@ -41,3 +41,6 @@ Thumbs.db
 .openapi/
 screens/
 apps/web/public/maplibre/
+
+# e2e
+apps/web/e2e/.users.json

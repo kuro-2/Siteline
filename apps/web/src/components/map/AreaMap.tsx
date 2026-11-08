@@ -240,7 +240,7 @@ export function AreaMap(props: AreaMapProps) {
   }, []);
 
   return (
-    <div className="relative h-full w-full">
+    <div className="relative h-full w-full" data-ready={map ? "true" : undefined}>
       <div ref={container} className="h-full w-full" role="region" aria-label={label} />
       {!map && (
         <p className="absolute inset-x-0 top-1/3 text-center text-ink-soft" aria-live="polite">

@@ -20,7 +20,7 @@ for (const scheme of ["light", "dark"]) {
       await page.goto(base + p, { waitUntil: "networkidle" }).catch(() => {});
       await page.waitForTimeout(2500);
       const name = `${p.replace(/[^a-z0-9]+/gi, "_") || "home"}-${width}-${scheme}.png`;
-      await page.screenshot({ path: `${out}/${name}` });
+      await page.screenshot({ path: `${out}/${name}` }).catch((e) => console.error(name, e.message));
       console.log(`${out}/${name}`);
     }
     await ctx.close();

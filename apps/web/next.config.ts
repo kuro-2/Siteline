@@ -3,7 +3,7 @@ import { loadEnvConfig } from "@next/env";
 import type { NextConfig } from "next";
 
 // One .env for the whole repo: load the root file (Vercel injects env vars directly).
-loadEnvConfig(resolve(__dirname, "../.."));
+loadEnvConfig(resolve(__dirname, "../.."), process.env.NODE_ENV !== "production", console, true);
 
 const nextConfig: NextConfig = {
   // Classic caching model (see docs/decisions.md): the explore UI is client-heavy.
