@@ -1,0 +1,30 @@
+# Google Maps Platform prices used by the quota guard and --dry-run estimates.
+# Checked 2026-11-08 at https://developers.google.com/maps/billing-and-pricing/pricing
+# Re-check before any large run. Prices in USD per 1,000 calls (first paid tier).
+google:
+  skus:
+    nearby_search_pro:
+      free_calls_per_month: 5000
+      usd_per_1000: 32.0
+    nearby_search_enterprise:
+      free_calls_per_month: 1000
+      usd_per_1000: 35.0
+    text_search_pro:
+      free_calls_per_month: 5000
+      usd_per_1000: 32.0
+    text_search_enterprise:
+      free_calls_per_month: 1000
+      usd_per_1000: 35.0
+  # Fields that keep a call in the Pro SKU.
+  pro_fields:
+    - places.id
+    - places.displayName
+    - places.types
+    - places.primaryType
+    - places.location
+    - places.businessStatus
+  # Adding these moves every call to the Enterprise SKU.
+  enterprise_fields:
+    - places.rating
+    - places.userRatingCount
+  usd_to_inr: 84.0         # display only; update when it drifts
