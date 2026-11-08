@@ -44,3 +44,10 @@ apps/web/public/maplibre/
 
 # e2e
 apps/web/e2e/.users.json
+
+# Private working docs: kept locally, never pushed
+CLAUDE.md
+SETUP-CHECKLIST.md
+START-PROMPT.md
+apps/web/AGENTS.md
+docs/

@@ -7,7 +7,6 @@ Nukkad studies one Guwahati locality and shows which kinds of small shop it's mi
 - `apps/web`: Next.js site (map, cell reports, survey, review, admin)
 - `services/api`: FastAPI service (`app/`) and the data engine CLI (`engine/`)
 - `supabase/`: Postgres + PostGIS schema, row-level security and seed data
-- `docs/`: product, architecture, schema, scoring, API, design system, build plan, decisions, backtests, deploy runbook
 
 ## Run it locally (about 10 minutes)
 
@@ -45,9 +44,6 @@ pnpm exec playwright test                        # e2e: explore, survey (offline
 node scripts/screens.mjs                         # design self-review screenshots
 ```
 
-## Where to read more
+## How the score works
 
-- How the score works and its limits: `docs/04-data-and-scoring.md`, and the public page `/method`
-- Every non-obvious choice: `docs/decisions.md`
-- Backtest results (honest, including bad ones): `docs/backtests/`
-- Deploying and running it: `docs/deploy.md`
+The public `/method` page on the site explains the scoring, its sources and its limits.
