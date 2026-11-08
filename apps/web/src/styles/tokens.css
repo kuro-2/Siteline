@@ -1,0 +1,109 @@
+/*
+ * Nukkad design tokens — implements docs/06-design-system.md §2 exactly.
+ * Light is the default; dark follows the system, and [data-theme] can force either.
+ */
+
+:root {
+  color-scheme: light;
+
+  /* colour */
+  --mist: #eef2ef;
+  --sheet: #fbfcfa;
+  --ink: #16252a;
+  --ink-soft: #4f6166;
+  --rule: #d3dcd7;
+  --tea: #245e46;
+  --river: #3b6a84;
+  --muga: #b88317; /* marks and annotations only — never body text */
+  --gamosa: #a3251a;
+  --on-tea: #fbfcfa; /* text on a tea-filled button */
+
+  /* opportunity scale (sequential, single hue) */
+  --opp-1: #e3ece6;
+  --opp-2: #bcd6c7;
+  --opp-3: #8dbba3;
+  --opp-4: #5a9a7c;
+  --opp-5: #245e46;
+
+  /* type */
+  --font-display: var(--font-bricolage), "Bricolage Grotesque", system-ui, sans-serif;
+  --font-text: var(--font-atkinson), "Atkinson Hyperlegible Next", "Atkinson Hyperlegible",
+    system-ui, sans-serif;
+  --step--2: 13px;
+  --step--1: 15px;
+  --step-0: 17px;
+  --step-1: 21px;
+  --step-2: 26px;
+  --step-3: 33px;
+  --step-4: 42px;
+  --leading-body: 1.55;
+  --leading-heading: 1.15;
+  --measure: 68ch;
+
+  /* space (4px base) */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-6: 24px;
+  --s-8: 32px;
+  --s-12: 48px;
+  --s-18: 72px;
+
+  /* shape: radius has a hierarchy */
+  --r-input: 6px;
+  --r-chip: 6px;
+  --r-button: 8px;
+  --r-sheet: 16px;
+  --r-pill: 999px;
+
+  /* depth: one shadow, only for things floating over the map */
+  --float: 0 1px 0 var(--rule), 0 8px 24px rgba(22, 37, 42, 0.08);
+
+  /* motion */
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --t-sheet: 200ms;
+  --t-draw: 600ms;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --mist: #11191c;
+    --sheet: #182327;
+    --ink: #e4ebe7;
+    --ink-soft: #a9b8b4;
+    --rule: #2b3a3f;
+    --tea: #7cc4a0;
+    --river: #86b4cc;
+    --muga: #e2b04a;
+    --gamosa: #f08a7e;
+    --on-tea: #11191c;
+    --opp-1: #1d2b2a;
+    --opp-2: #24453a;
+    --opp-3: #2f6a52;
+    --opp-4: #4f9878;
+    --opp-5: #7cc4a0;
+    --float: 0 1px 0 var(--rule), 0 8px 24px rgba(0, 0, 0, 0.35);
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --mist: #11191c;
+  --sheet: #182327;
+  --ink: #e4ebe7;
+  --ink-soft: #a9b8b4;
+  --rule: #2b3a3f;
+  --tea: #7cc4a0;
+  --river: #86b4cc;
+  --muga: #e2b04a;
+  --gamosa: #f08a7e;
+  --on-tea: #11191c;
+  --opp-1: #1d2b2a;
+  --opp-2: #24453a;
+  --opp-3: #2f6a52;
+  --opp-4: #4f9878;
+  --opp-5: #7cc4a0;
+  --float: 0 1px 0 var(--rule), 0 8px 24px rgba(0, 0, 0, 0.35);
+}

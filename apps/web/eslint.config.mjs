@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    "public/**",
+    "scripts/*.tmp.mjs",
+    "src/lib/api-types.ts",
   ]),
 ]);
 

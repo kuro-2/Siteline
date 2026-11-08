@@ -1,26 +1,258 @@
 @import "tailwindcss";
+@import "../styles/tokens.css";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
+/* Tailwind theme mapped onto our tokens, so utilities can only use the design system. */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-*: initial;
+  --color-mist: var(--mist);
+  --color-sheet: var(--sheet);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-rule: var(--rule);
+  --color-tea: var(--tea);
+  --color-river: var(--river);
+  --color-muga: var(--muga);
+  --color-gamosa: var(--gamosa);
+  --color-on-tea: var(--on-tea);
+  --color-transparent: transparent;
+  --color-current: currentColor;
+
+  --font-*: initial;
+  --font-display: var(--font-display);
+  --font-text: var(--font-text);
+
+  --text-*: initial;
+  --text-xs: 13px;
+  --text-sm: 15px;
+  --text-base: 17px;
+  --text-lg: 21px;
+  --text-xl: 26px;
+  --text-2xl: 33px;
+  --text-3xl: 42px;
+
+  --radius-*: initial;
+  --radius-input: 6px;
+  --radius-chip: 6px;
+  --radius-button: 8px;
+  --radius-sheet: 16px;
+  --radius-pill: 999px;
+
+  --shadow-*: initial;
+  --shadow-float: var(--float);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer base {
+  html {
+    background: var(--mist);
+    color: var(--ink);
+    font-family: var(--font-text);
+    font-size: 17px;
+    line-height: var(--leading-body);
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    min-height: 100dvh;
+    background: var(--mist);
+  }
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    line-height: var(--leading-heading);
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    font-optical-sizing: auto;
+  }
+  a {
+    color: var(--tea);
+    text-underline-offset: 3px;
+  }
+  :focus-visible {
+    outline: 2px solid var(--tea);
+    outline-offset: 2px;
+  }
+  table {
+    font-variant-numeric: tabular-nums;
+  }
+  ::selection {
+    background: color-mix(in srgb, var(--muga) 35%, transparent);
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@layer components {
+  .measure {
+    max-width: var(--measure);
+  }
+  .num {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Buttons: labels say exactly what happens. No arrows, no gradients. */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--s-2);
+    min-height: 44px;
+    padding: 0 var(--s-4);
+    border-radius: var(--r-button);
+    font-weight: 700;
+    font-size: var(--step--1);
+    border: 1px solid transparent;
+    cursor: pointer;
+    text-decoration: none;
+    transition: background-color 120ms, border-color 120ms;
+  }
+  .btn:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+  .btn-primary {
+    background: var(--tea);
+    color: var(--on-tea);
+  }
+  .btn-primary:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--tea) 88%, var(--ink));
+  }
+  .btn-secondary {
+    background: var(--sheet);
+    color: var(--ink);
+    border-color: var(--rule);
+  }
+  .btn-secondary:hover:not(:disabled) {
+    border-color: var(--ink-soft);
+  }
+  .btn-quiet {
+    background: transparent;
+    color: var(--tea);
+    padding: 0 var(--s-2);
+    text-decoration: underline;
+  }
+  .btn-danger {
+    background: var(--sheet);
+    color: var(--gamosa);
+    border-color: var(--gamosa);
+  }
+
+  .field {
+    display: block;
+    width: 100%;
+    min-height: 44px;
+    padding: var(--s-2) var(--s-3);
+    border: 1px solid var(--rule);
+    border-radius: var(--r-input);
+    background: var(--sheet);
+    color: var(--ink);
+    font: inherit;
+  }
+  .field:focus-visible {
+    border-color: var(--tea);
+  }
+  .label {
+    display: block;
+    font-weight: 700;
+    font-size: var(--step--1);
+    margin-bottom: var(--s-1);
+  }
+  .hint {
+    color: var(--ink-soft);
+    font-size: var(--step--1);
+  }
+
+  /* Ruled-notebook motif: only behind the evidence section of the field report. */
+  .notebook {
+    background-image: repeating-linear-gradient(
+      to bottom,
+      transparent 0,
+      transparent 27px,
+      color-mix(in srgb, var(--rule) 70%, transparent) 27px,
+      color-mix(in srgb, var(--rule) 70%, transparent) 28px
+    );
+  }
+
+  /* Tables: rules between rows, no zebra stripes, numbers right-aligned. */
+  .ruled {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .ruled th {
+    text-align: left;
+    font-size: var(--step--2);
+    color: var(--ink-soft);
+    font-weight: 700;
+    padding: var(--s-2) var(--s-2) var(--s-2) 0;
+    border-bottom: 1px solid var(--rule);
+  }
+  .ruled td {
+    padding: var(--s-2) var(--s-2) var(--s-2) 0;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: top;
+  }
+  .ruled .r {
+    text-align: right;
+  }
+
+  .map-control {
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    border-radius: var(--r-pill);
+    background: var(--sheet);
+    color: var(--ink);
+    box-shadow: var(--float);
+    border: 0;
+    cursor: pointer;
+  }
+}
+
+/* MapLibre: keep its UI calm and on-token. */
+.maplibregl-ctrl-attrib {
+  font-family: var(--font-text);
+  font-size: 11px;
+  background: color-mix(in srgb, var(--sheet) 85%, transparent) !important;
+  color: var(--ink-soft);
+}
+.maplibregl-ctrl-attrib a {
+  color: var(--ink-soft);
+}
+.maplibregl-canvas:focus-visible {
+  outline: 2px solid var(--tea);
+  outline-offset: -2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Hand-drawn marks (rough.js paths): gold marker, drawn once. */
+.hand-stroke {
+  fill: none;
+  stroke: var(--muga);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: hand-draw var(--t-draw) var(--ease-out) forwards;
+}
+.hand-stroke.static {
+  animation: none;
+  stroke-dashoffset: 0;
+}
+@keyframes hand-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hand-stroke {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
 }
