@@ -13,7 +13,8 @@ from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 API_DIR = Path(__file__).resolve().parents[1]
-REPO_ROOT = API_DIR.parents[1]
+# In the repo: services/api → repo root. In the Docker image (/app) there is no repo root.
+REPO_ROOT = API_DIR.parents[1] if len(API_DIR.parents) > 1 else API_DIR
 
 
 class MissingSetting(RuntimeError):

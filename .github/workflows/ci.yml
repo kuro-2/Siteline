@@ -1,0 +1,59 @@
+name: CI
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: apps/web } }
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+        env:
+          NEXT_PUBLIC_API_BASE_URL: http://localhost:8000
+
+  api:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: services/api } }
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --frozen
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      # Unit tests (database tests skip themselves without a database)
+      - run: uv run pytest -m "not db" --cov=engine/scoring --cov-fail-under=90
+
+  db:
+    # Migrations + RLS + API tests against a throwaway local Supabase.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: supabase/setup-cli@v1
+        with: { version: latest }
+      - uses: astral-sh/setup-uv@v6
+      - run: supabase start -x storage-api,imgproxy,studio,postgres-meta,realtime,edge-runtime,logflare,vector,mailpit
+      - name: Write .env from the local stack
+        run: |
+          eval "$(supabase status -o env | sed 's/^/SB_/')"
+          {
+            echo "DATABASE_URL=$SB_DB_URL"
+            echo "SUPABASE_URL=$SB_API_URL"
+            echo "SUPABASE_JWT_SECRET=$SB_JWT_SECRET"
+            echo "SUPABASE_SERVICE_ROLE_KEY=$SB_SERVICE_ROLE_KEY"
+          } > .env
+      - working-directory: services/api
+        run: uv sync --frozen && uv run pytest

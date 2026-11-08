@@ -1,0 +1,51 @@
+name: Ingest
+# Scheduled data refresh. Uses repository secrets with the same names as .env.
+on:
+  schedule:
+    - cron: "30 20 * * 0"   # weekly, Mon 02:00 IST: OpenStreetMap
+    - cron: "0 21 1 * *"    # monthly, 1st 02:30 IST: Google Places (only if enabled)
+    - cron: "15 0 * * *"    # daily 05:45 IST: Kobo, Google expiry, keep-alive
+  workflow_dispatch:
+    inputs:
+      job:
+        description: "osm | google | kobo | daily"
+        required: true
+        default: osm
+
+env:
+  APP_ENV: production
+  DATABASE_URL: ${{ secrets.DATABASE_URL }}
+  SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+  SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+  CONTACT_EMAIL: ${{ secrets.CONTACT_EMAIL }}
+  PILOT_AREA_SLUG: ${{ vars.PILOT_AREA_SLUG || 'pilot' }}
+  GOOGLE_PLACES_API_KEY: ${{ secrets.GOOGLE_PLACES_API_KEY }}
+  GOOGLE_MONTHLY_CALL_CAP: ${{ vars.GOOGLE_MONTHLY_CALL_CAP || '4500' }}
+  GOOGLE_INGEST_CONFIRMED: ${{ vars.GOOGLE_INGEST_CONFIRMED || 'false' }}
+  GOOGLE_RATINGS_ENABLED: ${{ vars.GOOGLE_RATINGS_ENABLED || 'false' }}
+  GOOGLE_CACHE_DAYS: ${{ vars.GOOGLE_CACHE_DAYS || '30' }}
+  KOBO_BASE_URL: ${{ vars.KOBO_BASE_URL || 'https://kf.kobotoolbox.org' }}
+  KOBO_API_TOKEN: ${{ secrets.KOBO_API_TOKEN }}
+  KOBO_ASSET_UID: ${{ vars.KOBO_ASSET_UID }}
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: services/api } }
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --frozen
+      - name: OpenStreetMap
+        if: github.event.schedule == '30 20 * * 0' || inputs.job == 'osm'
+        run: uv run engine ingest osm && uv run engine ingest dedupe
+      - name: Google Places
+        if: (github.event.schedule == '0 21 1 * *' && vars.GOOGLE_REFRESH_ENABLED == 'true') || inputs.job == 'google'
+        run: uv run engine ingest google && uv run engine ingest dedupe
+      - name: Daily
+        if: github.event.schedule == '15 0 * * *' || inputs.job == 'daily' || inputs.job == 'kobo'
+        run: |
+          uv run engine keepalive
+          uv run engine google expire
+          uv run engine privacy-purge
+          if [ -n "$KOBO_API_TOKEN" ] && [ -n "$KOBO_ASSET_UID" ]; then uv run engine ingest kobo; fi

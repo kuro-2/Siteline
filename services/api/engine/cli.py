@@ -284,6 +284,32 @@ def survey_create(
     _run(create_survey, area or _default_area(), slug or None, title)
 
 
+@app.command("privacy-purge")
+def privacy_purge(
+    days: Annotated[int, typer.Option(help="Keep hashes this many days")] = 365,
+    dry_run: DryOpt = False,
+) -> None:
+    """Remove device and network hashes from survey answers older than --days."""
+    from engine.db import connect
+    from engine.jobs import job_run
+
+    def fn() -> dict[str, Any]:
+        with job_run("privacy.purge", {"days": days}, dry_run=dry_run) as run, connect() as conn:
+            where = "submitted_at < now() - make_interval(days => %s) and (device_hash is not null or ip_hash is not null)"
+            n = conn.execute(
+                f"select count(*) as n from survey_responses where {where}", (days,)
+            ).fetchone()
+            run.set("rows", n["n"] if n else 0)
+            if not dry_run:
+                conn.execute(
+                    f"update survey_responses set device_hash = null, ip_hash = null where {where}",
+                    (days,),
+                )
+            return dict(run.counts)
+
+    _run(fn)
+
+
 @app.command("keepalive")
 def keepalive() -> None:
     """Tiny query so the free Supabase project doesn't pause."""
