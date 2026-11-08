@@ -1,0 +1,40 @@
+# deps / build
+node_modules/
+.next/
+out/
+dist/
+coverage/
+*.tsbuildinfo
+next-env.d.ts
+playwright-report/
+test-results/
+
+# python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# env and secrets
+.env
+.env.*
+!.env.example
+
+# local data (rasters, caches, boundaries you draw)
+data/*
+!data/README.md
+!data/pilot_boundary.example.geojson
+
+# supabase local
+supabase/.branches
+supabase/.temp
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/extensions.json

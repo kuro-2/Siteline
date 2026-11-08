@@ -1,0 +1,20 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Zoo Road (provisional pilot)",
+        "note": "Drawn by Claude Code around Zoo Road Tiniali, Guwahati, about 5 km2. Redraw at geojson.io to match the streets you want."
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [91.7690, 26.1800], [91.7790, 26.1812], [91.7905, 26.1795],
+          [91.7915, 26.1700], [91.7900, 26.1605], [91.7790, 26.1592],
+          [91.7685, 26.1610], [91.7678, 26.1705], [91.7690, 26.1800]
+        ]]
+      }
+    }
+  ]
+}

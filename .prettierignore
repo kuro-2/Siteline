@@ -1,0 +1,6 @@
+pnpm-lock.yaml
+apps/web/src/lib/api-types.ts
+services/
+supabase/
+docs/
+*.md
